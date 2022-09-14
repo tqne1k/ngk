@@ -6,5 +6,5 @@ import (
 
 func main() {
 	spaServer := new(lib.SPAServerHandler)
-	spaServer.Init("eno1")
+	spaServer.Init()
 }

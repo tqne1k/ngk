@@ -2,6 +2,7 @@ package lib
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -11,34 +12,31 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// type spaPacketInfor struct {
-// 	srcIPv4  string
-// 	srcIPv6  string
-// 	authData string
-// }
-
 type SPAServerHandler struct {
 	srcIPv4  string
 	srcIPv6  string
 	authData string
 }
 
-func (SPAServerHandler) Init(device string) {
+func (SPAServerHandler) Init() {
 	fmt.Print("Initing SPA server handler...")
+	config, err := LoadConfig(".")
+	if err != nil {
+		fmt.Println("cannot load config:", err)
+	}
 	var (
-		snapshot_len int32 = 1024
-		promiscuous  bool  = false
-		err          error
-		timeout      time.Duration = 100 * time.Millisecond
+		snapshot_len int32         = int32(config.Snapshot_len)
+		promiscuous  bool          = config.Promiscuous
+		timeout      time.Duration = time.Duration(config.Timeout) * time.Millisecond
 		handle       *pcap.Handle
 	)
-	handle, err = pcap.OpenLive(device, snapshot_len, promiscuous, timeout)
+	handle, err = pcap.OpenLive(config.Device, snapshot_len, promiscuous, timeout)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer handle.Close()
-	var filter string = "udp and port 62201"
-	err = handle.SetBPFFilter(filter)
+	var filter = flag.String("f", config.Protocol+" and dst port "+config.Port, "BPF filter for pcap")
+	err = handle.SetBPFFilter(*filter)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +46,15 @@ func (SPAServerHandler) Init(device string) {
 		if err != nil {
 			fmt.Println("Error: ", err)
 		} else {
-			fmt.Println("Auth data: ", spaPacketInfor.authData)
+			if !verifySignature(spaPacketInfor) {
+				fmt.Println("Verify singnature failed")
+			} else {
+				client_config, err := LoadClientConfig()
+				if err != nil {
+					fmt.Println("cannot load client config:", err)
+				}
+				fmt.Println("Client conf: ", client_config)
+			}
 		}
 	}
 
@@ -59,7 +65,6 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 	ipv4Layer := packet.Layer(layers.LayerTypeIPv4)
 	if ipv4Layer != nil {
 		ip, _ := ipv4Layer.(*layers.IPv4)
-		fmt.Println("IPv4: ", ip.SrcIP.String())
 		spaPacketInfor.srcIPv4 = ip.SrcIP.String()
 	} else {
 		spaPacketInfor.srcIPv4 = ""
@@ -79,4 +84,9 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 		spaPacketInfor.authData = string(applicationLayer.Payload())
 	}
 	return spaPacketInfor, nil
+}
+
+func verifySignature(spaPacketInfor SPAServerHandler) bool {
+
+	return true
 }
