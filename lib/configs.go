@@ -7,13 +7,15 @@ import (
 )
 
 type Config struct {
-	Device       string `mapstructure:"DEVICE"`
-	Protocol     string `mapstructure:"PROTOCOL"`
-	Port         string `mapstructure:"PORT"`
-	Snapshot_len int    `mapstructure:"SNAPSHOT_LEN"`
-	Promiscuous  bool   `mapstructure:"PROMISCUOUS"`
-	Timeout      int    `mapstructure:"TIMEOUT"`
-	Client_conf  string `mapstructure:"CLIENT_CONFIG"`
+	Device             string `mapstructure:"DEVICE"`
+	Protocol           string `mapstructure:"PROTOCOL"`
+	Port               string `mapstructure:"PORT"`
+	Snapshot_len       int    `mapstructure:"SNAPSHOT_LEN"`
+	Promiscuous        bool   `mapstructure:"PROMISCUOUS"`
+	Timeout            int    `mapstructure:"TIMEOUT"`
+	Client_conf        string `mapstructure:"CLIENT_CONFIG"`
+	Iptables_tablename string `mapstructure:"IPTABLES_NAME"`
+	Iptables_chain     string `mapstructure:"IPTABLES_CHAIN"`
 }
 
 type ClientConfig struct {
@@ -21,6 +23,7 @@ type ClientConfig struct {
 	SourceAddress string `mapstructure:"source_address"`
 	SigningKey    string `mapstructure:"signing_key"`
 	EncryptionKey string `mapstructure:"encryption_key"`
+	ServiceAccess string `mapstructure:"service_access"`
 }
 
 func LoadConfig(path string) (config Config, err error) {

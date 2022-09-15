@@ -60,20 +60,44 @@ func (SPAServerHandler) Init() {
 					fmt.Printf("Detect request matching [%s] configuration from [%s][%s]\n", config.SourceAddress, spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
 					fmt.Printf("Signature is %t\n", verify_flag)
+					if verify_flag {
+						serviceAcess := strings.Split(config.ServiceAccess, ",")
+						if verifySPA(spaPacketInfor) {
+							for _, service := range serviceAcess {
+								if spaPacketInfor.srcIPv4 != "" {
+									openPortAccess(spaPacketInfor.srcIPv4, service)
+								}
+								if spaPacketInfor.srcIPv6 != "" {
+									openPortAccess(spaPacketInfor.srcIPv6, service)
+								}
+							}
+						}
+					}
 				}
 				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv4 {
 					fmt.Println("Detect request matching [IPv4] configuration")
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
 					fmt.Printf("Signature is %t\n", verify_flag)
+					if verify_flag {
+						serviceAcess := strings.Split(config.ServiceAccess, ",")
+						if verifySPA(spaPacketInfor) {
+							for _, service := range serviceAcess {
+								openPortAccess(spaPacketInfor.srcIPv4, service)
+							}
+						}
+					}
 				}
 				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv6 {
 					fmt.Println("Detect request matching [IPv6] configuration")
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
 					fmt.Printf("Signature is %t\n", verify_flag)
-				}
-				if verify_flag {
-					if verifySPA(spaPacketInfor) {
-						createRuleAccept()
+					if verify_flag {
+						serviceAcess := strings.Split(config.ServiceAccess, ",")
+						if verifySPA(spaPacketInfor) {
+							for _, service := range serviceAcess {
+								openPortAccess(spaPacketInfor.srcIPv6, service)
+							}
+						}
 					}
 				}
 			}
@@ -122,8 +146,4 @@ func verifySPA(spaPacketInfor SPAServerHandler) bool {
 	fmt.Println("Verifing SPA packet...")
 
 	return true
-}
-
-func createRuleAccept() {
-	createInputToPortFilter()
 }
