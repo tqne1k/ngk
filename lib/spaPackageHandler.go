@@ -72,7 +72,9 @@ func (SPAServerHandler) Init() {
 					fmt.Printf("Signature is %t\n", verify_flag)
 				}
 				if verify_flag {
-					verifySPA(spaPacketInfor)
+					if verifySPA(spaPacketInfor) {
+						createRuleAccept()
+					}
 				}
 			}
 		}
@@ -120,4 +122,8 @@ func verifySPA(spaPacketInfor SPAServerHandler) bool {
 	fmt.Println("Verifing SPA packet...")
 
 	return true
+}
+
+func createRuleAccept() {
+	createInputToPortFilter()
 }
