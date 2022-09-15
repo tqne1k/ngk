@@ -17,8 +17,10 @@ type Config struct {
 }
 
 type ClientConfig struct {
-	Config_name string `mapstructure:"config_name"`
-	Key         string `mapstructure:"key"`
+	Name          string `mapstructure:"name"`
+	SourceAddress string `mapstructure:"source_address"`
+	SigningKey    string `mapstructure:"signing_key"`
+	EncryptionKey string `mapstructure:"encryption_key"`
 }
 
 func LoadConfig(path string) (config Config, err error) {
@@ -36,8 +38,8 @@ func LoadConfig(path string) (config Config, err error) {
 	return
 }
 
-func LoadClientConfig() (client_config ClientConfig, err error) {
-
+func LoadClientConfig() (arrayClientConfig []ClientConfig, err error) {
+	// var arrayClientConfig []ClientConfig
 	viper.SetConfigName("client_access")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("/etc/ngk")
@@ -46,6 +48,6 @@ func LoadClientConfig() (client_config ClientConfig, err error) {
 	if err != nil {
 		fmt.Println("fatal error config file: %w", err)
 	}
-	err = viper.Unmarshal(&client_config)
+	err = viper.UnmarshalKey("clients", &arrayClientConfig)
 	return
 }

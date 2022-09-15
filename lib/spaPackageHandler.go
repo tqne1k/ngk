@@ -1,10 +1,14 @@
 package lib
 
 import (
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/gopacket"
@@ -19,7 +23,7 @@ type SPAServerHandler struct {
 }
 
 func (SPAServerHandler) Init() {
-	fmt.Print("Initing SPA server handler...")
+	fmt.Println("Initing SPA server handler...")
 	config, err := LoadConfig(".")
 	if err != nil {
 		fmt.Println("cannot load config:", err)
@@ -46,18 +50,33 @@ func (SPAServerHandler) Init() {
 		if err != nil {
 			fmt.Println("Error: ", err)
 		} else {
-			if !verifySignature(spaPacketInfor) {
-				fmt.Println("Verify singnature failed")
-			} else {
-				client_config, err := LoadClientConfig()
-				if err != nil {
-					fmt.Println("cannot load client config:", err)
+			client_config, err := LoadClientConfig()
+			if err != nil {
+				fmt.Println("cannot load client config:", err)
+			}
+			for _, config := range client_config {
+				verify_flag := false
+				if config.SourceAddress == "any" {
+					fmt.Printf("Detect request matching [%s] configuration from [%s][%s]\n", config.SourceAddress, spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
+					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
+					fmt.Printf("Signature is %t\n", verify_flag)
 				}
-				fmt.Println("Client conf: ", client_config)
+				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv4 {
+					fmt.Println("Detect request matching [IPv4] configuration")
+					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
+					fmt.Printf("Signature is %t\n", verify_flag)
+				}
+				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv6 {
+					fmt.Println("Detect request matching [IPv6] configuration")
+					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
+					fmt.Printf("Signature is %t\n", verify_flag)
+				}
+				if verify_flag {
+					verifySPA(spaPacketInfor)
+				}
 			}
 		}
 	}
-
 }
 
 func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
@@ -86,7 +105,19 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 	return spaPacketInfor, nil
 }
 
-func verifySignature(spaPacketInfor SPAServerHandler) bool {
+func verifySignature(authData string, signingKey string) bool {
+	authData = "MEUCIA+aNni66DOwh6TxZqt1i3tw4ayFu9fP2/UvJqJBR9fKAiEAggE+tph4uSCG9m6XAAIMCmMCUqx+VOrQ4rTn7G58bro=.hihi"
+	fmt.Println("Verifing signature...")
+	signature, _ := base64.StdEncoding.DecodeString(strings.Split(authData, ".")[0])
+	data := strings.Split(authData, ".")[1]
+	hash := sha256.Sum256([]byte(data))
+	signingPublicKey := decodePublicKey(signingKey)
+	valid := ecdsa.VerifyASN1(signingPublicKey, hash[:], signature)
+	return valid
+}
+
+func verifySPA(spaPacketInfor SPAServerHandler) bool {
+	fmt.Println("Verifing SPA packet...")
 
 	return true
 }
