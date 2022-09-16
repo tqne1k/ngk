@@ -2,8 +2,14 @@ package lib
 
 import (
 	"fmt"
+	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+)
+
+const (
+	LOG_PATH string = "/var/log/ngk.log"
 )
 
 type Config struct {
@@ -16,6 +22,8 @@ type Config struct {
 	Client_conf        string `mapstructure:"CLIENT_CONFIG"`
 	Iptables_tablename string `mapstructure:"IPTABLES_NAME"`
 	Iptables_chain     string `mapstructure:"IPTABLES_CHAIN"`
+	Rule_expires       int    `mapstructure:"RULE_EXPIRES"`
+	Log_path           string `mapstructure:"LOG_PATH"`
 }
 
 type ClientConfig struct {
@@ -53,4 +61,15 @@ func LoadClientConfig() (arrayClientConfig []ClientConfig, err error) {
 	}
 	err = viper.UnmarshalKey("clients", &arrayClientConfig)
 	return
+}
+
+func LogInIt() {
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+	logPath, err := os.OpenFile(LOG_PATH, os.O_WRONLY|os.O_APPEND, 0755)
+	if err != nil {
+		logPath, _ = os.OpenFile(LOG_PATH, os.O_WRONLY|os.O_CREATE, 0755)
+	}
+	log.SetOutput(logPath)
 }

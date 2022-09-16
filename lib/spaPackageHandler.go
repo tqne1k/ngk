@@ -6,14 +6,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
-	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	log "github.com/sirupsen/logrus"
 )
 
 type SPAServerHandler struct {
@@ -23,11 +22,22 @@ type SPAServerHandler struct {
 }
 
 func (SPAServerHandler) Init() {
-	fmt.Println("Initing SPA server handler...")
+	log.Info("Initing SPA server handler...")
+
+	LogInIt()
 	config, err := LoadConfig(".")
 	if err != nil {
-		fmt.Println("cannot load config:", err)
+		log.Errorf("Cannot load app config! [%s]", err)
 	}
+
+	log.Info("Running auto remove expires rule service...")
+	go func() {
+		for {
+			removeExpiresRule(config)
+			time.Sleep(200 * time.Millisecond)
+		}
+	}()
+
 	var (
 		snapshot_len int32         = int32(config.Snapshot_len)
 		promiscuous  bool          = config.Promiscuous
@@ -39,27 +49,29 @@ func (SPAServerHandler) Init() {
 		log.Fatal(err)
 	}
 	defer handle.Close()
+
 	var filter = flag.String("f", config.Protocol+" and dst port "+config.Port, "BPF filter for pcap")
 	err = handle.SetBPFFilter(*filter)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range packetSource.Packets() {
 		spaPacketInfor, err := getPacketInfo(packet)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Errorf("Can not get SPA packet info! [%s]", err)
 		} else {
 			client_config, err := LoadClientConfig()
 			if err != nil {
-				fmt.Println("cannot load client config:", err)
+				log.Errorf("Cannot load client config! [%s]", err)
 			}
 			for _, config := range client_config {
 				verify_flag := false
 				if config.SourceAddress == "any" {
-					fmt.Printf("Detect request matching [%s] configuration from [%s][%s]\n", config.SourceAddress, spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
+					log.Infof("Detect request matching [ANY] configuration from [%s %s].", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
-					fmt.Printf("Signature is %t\n", verify_flag)
+					log.Infof("Verify signature from %s / %s is %t.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
 						if verifySPA(spaPacketInfor) {
@@ -75,9 +87,9 @@ func (SPAServerHandler) Init() {
 					}
 				}
 				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv4 {
-					fmt.Println("Detect request matching [IPv4] configuration")
+					log.Infof("Detect request matching %s configuration from %s.", config.Name, spaPacketInfor.srcIPv4)
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
-					fmt.Printf("Signature is %t\n", verify_flag)
+					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
 						if verifySPA(spaPacketInfor) {
@@ -88,9 +100,9 @@ func (SPAServerHandler) Init() {
 					}
 				}
 				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv6 {
-					fmt.Println("Detect request matching [IPv6] configuration")
+					log.Infof("Detect request matching %s configuration from %s.", config.Name, spaPacketInfor.srcIPv6)
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
-					fmt.Printf("Signature is %t\n", verify_flag)
+					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
 						if verifySPA(spaPacketInfor) {
@@ -133,7 +145,6 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 
 func verifySignature(authData string, signingKey string) bool {
 	authData = "MEUCIA+aNni66DOwh6TxZqt1i3tw4ayFu9fP2/UvJqJBR9fKAiEAggE+tph4uSCG9m6XAAIMCmMCUqx+VOrQ4rTn7G58bro=.hihi"
-	fmt.Println("Verifing signature...")
 	signature, _ := base64.StdEncoding.DecodeString(strings.Split(authData, ".")[0])
 	data := strings.Split(authData, ".")[1]
 	hash := sha256.Sum256([]byte(data))
@@ -143,7 +154,7 @@ func verifySignature(authData string, signingKey string) bool {
 }
 
 func verifySPA(spaPacketInfor SPAServerHandler) bool {
-	fmt.Println("Verifing SPA packet...")
+	log.Infof("Verifing SPA packet data from %s %s.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
 
 	return true
 }
