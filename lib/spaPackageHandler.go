@@ -22,9 +22,10 @@ type SPAServerHandler struct {
 }
 
 func (SPAServerHandler) Init() {
+	LogInIt()
+
 	log.Info("Initing SPA server handler...")
 
-	LogInIt()
 	config, err := LoadConfig(".")
 	if err != nil {
 		log.Errorf("Cannot load app config! [%s]", err)

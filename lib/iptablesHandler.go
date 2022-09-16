@@ -49,7 +49,7 @@ func removeExpiresRule(config Config) {
 	}
 
 	for _, rule := range listRules {
-		re, _ := regexp.Compile(`-A NGK_INPUT -s (.*) -p (.*) -m (.*) --dport (\d*) -m comment --comment _exp_(\d*) -j ACCEPT`)
+		re, _ := regexp.Compile(config.Iptables_access_rule_conf)
 		res := re.FindStringSubmatch(rule)
 		if len(res) > 0 {
 			time_expires := res[5]
