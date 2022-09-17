@@ -22,16 +22,16 @@ func openPortAccess(sourceAddress string, serviceAccess string) {
 	port := strings.Split(serviceAccess, "/")[1]
 
 	ipt, _ := iptables.New()
-	chainList := strings.Split(config.Iptables_chain, ",")
+	chainList := strings.Split(config.IptablesChain, ",")
 
 	for _, chain := range chainList {
-		isExists, _ := ipt.ChainExists(config.Iptables_tablename, chain)
+		isExists, _ := ipt.ChainExists(config.IptablesTablename, chain)
 		if !isExists {
 			log.Infof("Creating %s chain", chain)
-			ipt.NewChain(config.Iptables_tablename, chain)
+			ipt.NewChain(config.IptablesTablename, chain)
 		}
 		timestamp := time.Now().Unix()
-		err = ipt.Insert(config.Iptables_tablename, chain, 1, "-s", sourceAddress, "--protocol",
+		err = ipt.Insert(config.IptablesTablename, chain, 1, "-s", sourceAddress, "--protocol",
 			protocol, "--dport", port, "-m", "comment", "--comment", "_exp_"+fmt.Sprint(timestamp), "-j", "ACCEPT")
 		if err != nil {
 			fmt.Println(err)
@@ -43,13 +43,13 @@ func openPortAccess(sourceAddress string, serviceAccess string) {
 
 func removeExpiresRule(config Config) {
 	ipt, _ := iptables.New()
-	listRules, err := ipt.List(config.Iptables_tablename, config.Iptables_chain)
+	listRules, err := ipt.List(config.IptablesTablename, config.IptablesChain)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	for _, rule := range listRules {
-		re, _ := regexp.Compile(config.Iptables_access_rule_conf)
+		re, _ := regexp.Compile(config.IptablesAccessRuleConf)
 		res := re.FindStringSubmatch(rule)
 		if len(res) > 0 {
 			time_expires := res[5]
@@ -60,7 +60,7 @@ func removeExpiresRule(config Config) {
 			timestamp_now := time.Now().Unix()
 			if timestamp_now-int64(rule_expires_time) > 60 {
 				log.Infof("Remove rule: [%s]", rule)
-				err = ipt.Delete(config.Iptables_tablename, config.Iptables_chain, "-s", res[1],
+				err = ipt.Delete(config.IptablesTablename, config.IptablesChain, "-s", res[1],
 					"-p", res[2], "--dport", res[4], "-m", "comment", "--comment", "_exp_"+res[5], "-j", "ACCEPT")
 				if err != nil {
 					log.Errorf("Can not remove rule [%s]", rule)

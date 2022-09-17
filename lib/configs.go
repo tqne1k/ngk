@@ -13,18 +13,18 @@ const (
 )
 
 type Config struct {
-	Device                    string `mapstructure:"DEVICE"`
-	Protocol                  string `mapstructure:"PROTOCOL"`
-	Port                      string `mapstructure:"PORT"`
-	Snapshot_len              int    `mapstructure:"SNAPSHOT_LEN"`
-	Promiscuous               bool   `mapstructure:"PROMISCUOUS"`
-	Timeout                   int    `mapstructure:"TIMEOUT"`
-	Client_conf               string `mapstructure:"CLIENT_CONFIG"`
-	Iptables_tablename        string `mapstructure:"IPTABLES_NAME"`
-	Iptables_chain            string `mapstructure:"IPTABLES_CHAIN"`
-	Rule_expires              int    `mapstructure:"RULE_EXPIRES"`
-	Log_path                  string `mapstructure:"LOG_PATH"`
-	Iptables_access_rule_conf string `mapstructure:"IPTABLES_ACCESS_RULE_REGEX"`
+	Device                 string `mapstructure:"DEVICE"`
+	Protocol               string `mapstructure:"PROTOCOL"`
+	Port                   string `mapstructure:"PORT"`
+	Snapshot_len           int    `mapstructure:"SNAPSHOT_LEN"`
+	Promiscuous            bool   `mapstructure:"PROMISCUOUS"`
+	Timeout                int    `mapstructure:"TIMEOUT"`
+	ClientConf             string `mapstructure:"CLIENT_CONFIG"`
+	IptablesTablename      string `mapstructure:"IPTABLES_NAME"`
+	IptablesChain          string `mapstructure:"IPTABLES_CHAIN"`
+	RuleExpires            int    `mapstructure:"RULE_EXPIRES"`
+	LogPath                string `mapstructure:"LOG_PATH"`
+	IptablesAccessRuleConf string `mapstructure:"IPTABLES_ACCESS_RULE_REGEX"`
 }
 
 type ClientConfig struct {
