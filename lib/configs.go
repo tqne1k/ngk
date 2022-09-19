@@ -72,5 +72,6 @@ func LogInIt() {
 	if err != nil {
 		logPath, _ = os.OpenFile(LOG_PATH, os.O_WRONLY|os.O_CREATE, 0755)
 	}
+	log.SetLevel(log.InfoLevel)
 	log.SetOutput(logPath)
 }

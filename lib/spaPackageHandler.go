@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -76,15 +75,13 @@ func (SPAServerHandler) Init() {
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
 					log.Infof("Verify signature from %s / %s is %t.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6, verify_flag)
 					if verify_flag {
-						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor, config.EncryptionKey) {
-							for _, service := range serviceAcess {
-								if spaPacketInfor.srcIPv4 != "" {
-									openPortAccess(spaPacketInfor.srcIPv4, service)
-								}
-								if spaPacketInfor.srcIPv6 != "" {
-									openPortAccess(spaPacketInfor.srcIPv6, service)
-								}
+						verifySPAResult, statusOK := verifySPA(config.ServiceAccess, spaPacketInfor, config.EncryptionKey)
+						if statusOK {
+							if spaPacketInfor.srcIPv4 != "" {
+								openPortAccess(spaPacketInfor.srcIPv4, verifySPAResult)
+							}
+							if spaPacketInfor.srcIPv6 != "" {
+								openPortAccess(spaPacketInfor.srcIPv6, verifySPAResult)
 							}
 						}
 					}
@@ -94,24 +91,20 @@ func (SPAServerHandler) Init() {
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
 					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
 					if verify_flag {
-						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor, config.EncryptionKey) {
-							for _, service := range serviceAcess {
-								openPortAccess(spaPacketInfor.srcIPv4, service)
-							}
+						verifySPAResult, statusOK := verifySPA(config.ServiceAccess, spaPacketInfor, config.EncryptionKey)
+						if statusOK {
+							openPortAccess(spaPacketInfor.srcIPv4, verifySPAResult)
 						}
 					}
 				}
 				if !verify_flag && config.SourceAddress == spaPacketInfor.srcIPv6 {
 					log.Infof("Detect request matching %s configuration from %s.", config.Name, spaPacketInfor.srcIPv6)
 					verify_flag = verify_flag || verifySignature(spaPacketInfor.authData, config.SigningKey)
-					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
+					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv6, verify_flag)
 					if verify_flag {
-						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor, config.EncryptionKey) {
-							for _, service := range serviceAcess {
-								openPortAccess(spaPacketInfor.srcIPv6, service)
-							}
+						verifySPAResult, statusOK := verifySPA(config.ServiceAccess, spaPacketInfor, config.EncryptionKey)
+						if statusOK {
+							openPortAccess(spaPacketInfor.srcIPv6, verifySPAResult)
 						}
 					}
 				}
@@ -147,11 +140,12 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 }
 
 func verifySignature(authData string, signingKey string) bool {
-	// authData = "MEUCIA+aNni66DOwh6TxZqt1i3tw4ayFu9fP2/UvJqJBR9fKAiEAggE+tph4uSCG9m6XAAIMCmMCUqx+VOrQ4rTn7G58bro=.hihi"
+	fmt.Println(authData)
 	signature, _ := base64.StdEncoding.DecodeString(strings.Split(authData, ".")[0])
 	secretMessage := strings.Split(authData, ".")
 
-	if len(secretMessage) != 1 {
+	if len(secretMessage) != 2 {
+		fmt.Println("LEN: ", len(secretMessage))
 		return false
 	}
 	hash := sha256.Sum256([]byte(secretMessage[1]))
@@ -160,14 +154,32 @@ func verifySignature(authData string, signingKey string) bool {
 	return valid
 }
 
-func verifySPA(spaPacketInfor SPAServerHandler, encryptionKey string) bool {
+func verifySPA(serviceAccess string, spaPacketInfor SPAServerHandler, encryptionKey string) (string, bool) {
 	log.Infof("Verifing SPA packet data from %s %s.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
 	secretMessage := strings.Split(spaPacketInfor.authData, ".")
-	if len(secretMessage) != 1 {
-		return false
+	if len(secretMessage) != 2 {
+		return "", false
 	}
-	test := hex.EncodeToString([]byte(spaPacketInfor.authData))
-	packetAuthData := DecryptAES([]byte(encryptionKey), test)
-	fmt.Printf("Packet data: %s", packetAuthData)
-	return true
+	packetAuthData, err := DecryptAES([]byte(encryptionKey), secretMessage[1])
+	if err != nil {
+		log.Error(err)
+		return "", false
+	}
+	log.Infof("Auth data: [%s]", packetAuthData)
+	arrayRequestServiceAccess := strings.Split(packetAuthData, ",")
+	for _, service := range arrayRequestServiceAccess {
+		if strings.Contains(service, "accessPort") {
+			serviceAccessRequest := strings.Split(service, "=")
+			if len(serviceAccessRequest) != 2 {
+				return "", false
+			}
+			for _, serviceAccessMember := range strings.Split(serviceAccess, ",") {
+				if serviceAccessMember == serviceAccessRequest[1] {
+					return serviceAccessRequest[1], true
+				}
+			}
+		}
+	}
+	log.Warn("Invalid request to service!")
+	return "", false
 }
