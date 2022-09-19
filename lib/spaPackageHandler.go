@@ -4,8 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"flag"
+	"fmt"
 	"strings"
 	"time"
 
@@ -75,7 +77,7 @@ func (SPAServerHandler) Init() {
 					log.Infof("Verify signature from %s / %s is %t.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor) {
+						if verifySPA(spaPacketInfor, config.EncryptionKey) {
 							for _, service := range serviceAcess {
 								if spaPacketInfor.srcIPv4 != "" {
 									openPortAccess(spaPacketInfor.srcIPv4, service)
@@ -93,7 +95,7 @@ func (SPAServerHandler) Init() {
 					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor) {
+						if verifySPA(spaPacketInfor, config.EncryptionKey) {
 							for _, service := range serviceAcess {
 								openPortAccess(spaPacketInfor.srcIPv4, service)
 							}
@@ -106,7 +108,7 @@ func (SPAServerHandler) Init() {
 					log.Infof("Verify signature from %s is %t.", spaPacketInfor.srcIPv4, verify_flag)
 					if verify_flag {
 						serviceAcess := strings.Split(config.ServiceAccess, ",")
-						if verifySPA(spaPacketInfor) {
+						if verifySPA(spaPacketInfor, config.EncryptionKey) {
 							for _, service := range serviceAcess {
 								openPortAccess(spaPacketInfor.srcIPv6, service)
 							}
@@ -145,17 +147,27 @@ func getPacketInfo(packet gopacket.Packet) (SPAServerHandler, error) {
 }
 
 func verifySignature(authData string, signingKey string) bool {
-	authData = "MEUCIA+aNni66DOwh6TxZqt1i3tw4ayFu9fP2/UvJqJBR9fKAiEAggE+tph4uSCG9m6XAAIMCmMCUqx+VOrQ4rTn7G58bro=.hihi"
+	// authData = "MEUCIA+aNni66DOwh6TxZqt1i3tw4ayFu9fP2/UvJqJBR9fKAiEAggE+tph4uSCG9m6XAAIMCmMCUqx+VOrQ4rTn7G58bro=.hihi"
 	signature, _ := base64.StdEncoding.DecodeString(strings.Split(authData, ".")[0])
-	data := strings.Split(authData, ".")[1]
-	hash := sha256.Sum256([]byte(data))
+	secretMessage := strings.Split(authData, ".")
+
+	if len(secretMessage) != 1 {
+		return false
+	}
+	hash := sha256.Sum256([]byte(secretMessage[1]))
 	signingPublicKey := decodePublicKey(signingKey)
 	valid := ecdsa.VerifyASN1(signingPublicKey, hash[:], signature)
 	return valid
 }
 
-func verifySPA(spaPacketInfor SPAServerHandler) bool {
+func verifySPA(spaPacketInfor SPAServerHandler, encryptionKey string) bool {
 	log.Infof("Verifing SPA packet data from %s %s.", spaPacketInfor.srcIPv4, spaPacketInfor.srcIPv6)
-
+	secretMessage := strings.Split(spaPacketInfor.authData, ".")
+	if len(secretMessage) != 1 {
+		return false
+	}
+	test := hex.EncodeToString([]byte(spaPacketInfor.authData))
+	packetAuthData := DecryptAES([]byte(encryptionKey), test)
+	fmt.Printf("Packet data: %s", packetAuthData)
 	return true
 }

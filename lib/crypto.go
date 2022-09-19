@@ -1,9 +1,11 @@
 package lib
 
 import (
+	"crypto/aes"
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 )
 
@@ -38,4 +40,26 @@ func decodePublicKey(pemEncodedPub string) *ecdsa.PublicKey {
 	genericPublicKey, _ := x509.ParsePKIXPublicKey(x509EncodedPub)
 	publicKey := genericPublicKey.(*ecdsa.PublicKey)
 	return publicKey
+}
+
+func EncryptAES(key []byte, plaintext string) string {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	out := make([]byte, len(plaintext))
+	c.Encrypt(out, []byte(plaintext))
+	return hex.EncodeToString(out)
+}
+
+func DecryptAES(key []byte, ct string) string {
+	ciphertext, _ := hex.DecodeString(ct)
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	pt := make([]byte, len(ciphertext))
+	c.Decrypt(pt, ciphertext)
+	s := string(pt[:])
+	return s
 }
